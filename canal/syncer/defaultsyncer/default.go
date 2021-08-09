@@ -41,7 +41,7 @@ func New(opts ...Option) (*Syncer, error) {
 }
 
 func (s *Syncer) initSyncer() error {
-	data, err := s.loadCheckpointData()
+	data, err := s.loadSnapshot()
 	if err != nil {
 		return err
 	}
@@ -56,7 +56,7 @@ func (s *Syncer) timingFlush() {
 		for {
 			select {
 			case <-flushTicker.C:
-				_ = s.flushCheckpointData()
+				_ = s.flushSnapshot()
 			}
 		}
 	}()
@@ -131,19 +131,19 @@ func (s *Syncer) UpdateLatency(ts uint32) {
 	atomic.StoreUint32(&s.latency, latency)
 }
 
-func (s *Syncer) flushCheckpointData() error {
-	bytes, _ := json.Marshal(&checkpointData{GTIDSet: s.GTIDSet().String(), Position: s.Position().String(), Timestamp: s.Timestamp()})
+func (s *Syncer) flushSnapshot() error {
+	bytes, _ := json.Marshal(&snapshot{GTIDSet: s.GTIDSet().String(), Position: s.Position().String(), Timestamp: s.Timestamp()})
 	return s.flushClient.Write(s.id, bytes)
 }
 
-func (s *Syncer) loadCheckpointData() (*checkpointData, error) {
+func (s *Syncer) loadSnapshot() (*snapshot, error) {
 	bytes, err := s.flushClient.Read(s.id)
 	if err != nil {
 		return nil, err
 	}
-	data := new(checkpointData)
+	data := new(snapshot)
 	if err := json.Unmarshal(bytes, &data); err != nil {
-		log.Errorf("loadCheckpointData id:%d, error:%s", s.id, err)
+		log.Errorf("loadSnapshot id:%d, error:%s", s.id, err)
 		return nil, err
 	}
 	return data, nil
@@ -158,7 +158,7 @@ func (s *Syncer) Start() (*replication.BinlogStreamer, error) {
 }
 
 func (s *Syncer) Close() error {
-	_ = s.flushCheckpointData()
+	_ = s.flushSnapshot()
 	s.binlogSyncer.Close()
 	return nil
 }

@@ -101,6 +101,7 @@ func (c *Canal) Run() error {
 			return err
 		}
 
+		// todo: 更新postion/timestamp
 		c.syncer.UpdateLatency(logEvent.Header.Timestamp)
 
 		// The name of the binlog file received in the fake rotate event.
