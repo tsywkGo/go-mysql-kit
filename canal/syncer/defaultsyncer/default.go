@@ -9,12 +9,13 @@ import (
 	"github.com/go-mysql-org/go-mysql/mysql"
 	"github.com/go-mysql-org/go-mysql/replication"
 	"github.com/siddontang/go-log/log"
+	"github.com/tsywkGo/go-mysql-kit/canal/syncer/flusher"
 )
 
 type Syncer struct {
 	// 同步ID, 同步信息
-	id            int64
-	flushClient   FlushClient
+	id            string
+	flusher       flusher.IFlusher
 	flushDuration time.Duration
 
 	serverID     uint32
@@ -41,7 +42,7 @@ func New(opts ...Option) (*Syncer, error) {
 }
 
 func (s *Syncer) initSyncer() error {
-	data, err := s.loadSnapshot()
+	data, err := s.readSnapshot()
 	if err != nil {
 		return err
 	}
@@ -56,13 +57,13 @@ func (s *Syncer) timingFlush() {
 		for {
 			select {
 			case <-flushTicker.C:
-				_ = s.flushSnapshot()
+				_ = s.writeSnapshot()
 			}
 		}
 	}()
 }
 
-func (s *Syncer) ID() int64 {
+func (s *Syncer) ID() string {
 	return s.id
 }
 
@@ -131,19 +132,19 @@ func (s *Syncer) UpdateLatency(ts uint32) {
 	atomic.StoreUint32(&s.latency, latency)
 }
 
-func (s *Syncer) flushSnapshot() error {
+func (s *Syncer) writeSnapshot() error {
 	bytes, _ := json.Marshal(&snapshot{GTIDSet: s.GTIDSet().String(), Position: s.Position().String(), Timestamp: s.Timestamp()})
-	return s.flushClient.Write(s.id, bytes)
+	return s.flusher.Write(s.id, bytes)
 }
 
-func (s *Syncer) loadSnapshot() (*snapshot, error) {
-	bytes, err := s.flushClient.Read(s.id)
+func (s *Syncer) readSnapshot() (*snapshot, error) {
+	bytes, err := s.flusher.Read(s.id)
 	if err != nil {
 		return nil, err
 	}
 	data := new(snapshot)
 	if err := json.Unmarshal(bytes, &data); err != nil {
-		log.Errorf("loadSnapshot id:%d, error:%s", s.id, err)
+		log.Errorf("readSnapshot id:%d, error:%s", s.id, err)
 		return nil, err
 	}
 	return data, nil
@@ -158,7 +159,8 @@ func (s *Syncer) Start() (*replication.BinlogStreamer, error) {
 }
 
 func (s *Syncer) Close() error {
-	_ = s.flushSnapshot()
+	_ = s.writeSnapshot()
+	_ = s.flusher.Close()
 	s.binlogSyncer.Close()
 	return nil
 }

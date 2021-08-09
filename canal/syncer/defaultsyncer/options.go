@@ -4,34 +4,21 @@ import (
 	"math/rand"
 	"time"
 
+	"github.com/tsywkGo/go-mysql-kit/canal/syncer/flusher"
+
 	"github.com/go-mysql-org/go-mysql/mysql"
 	"github.com/go-mysql-org/go-mysql/replication"
 )
 
 const (
-	_defaultFlushDuration   = 60 * time.Second
 	_defaultHeartbeatPeriod = 200 * time.Millisecond
 	_defaultReadTimeout     = 500 * time.Millisecond
+	_defaultFlushDuration   = 60 * time.Second
 )
 
 type Option func(syncer *Syncer)
 
-func WithFlushClient(client FlushClient) Option {
-	return func(syncer *Syncer) {
-		syncer.flushClient = client
-	}
-}
-
-func WithFlushDuration(duration time.Duration) Option {
-	return func(syncer *Syncer) {
-		if duration <= 0 {
-			duration = _defaultFlushDuration
-		}
-		syncer.flushDuration = duration
-	}
-}
-
-func WithSyncerID(id int64) Option {
+func WithSyncerID(id string) Option {
 	return func(syncer *Syncer) {
 		syncer.id = id
 	}
@@ -79,5 +66,17 @@ func WithBinlogSyncer(cfg *replication.BinlogSyncerConfig) Option {
 			TimestampStringLocation: cfg.TimestampStringLocation,
 			TLSConfig:               cfg.TLSConfig,
 		})
+	}
+}
+
+func WithFlusher(flusher flusher.IFlusher) Option {
+	return func(syncer *Syncer) {
+		syncer.flusher = flusher
+	}
+}
+
+func WithFlushDuration(duration time.Duration) Option {
+	return func(syncer *Syncer) {
+		syncer.flushDuration = duration
 	}
 }

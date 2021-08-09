@@ -10,8 +10,8 @@ import (
 	"github.com/go-mysql-org/go-mysql/mysql"
 	"github.com/go-mysql-org/go-mysql/schema"
 	"github.com/pingcap/errors"
+	"github.com/siddontang/go-log/log"
 	"github.com/siddontang/go/hack"
-	"github.com/siddontang/go/log"
 )
 
 type Master struct {
@@ -21,11 +21,13 @@ type Master struct {
 
 func New(cfg *Config) (*Master, error) {
 	if err := cfg.WithDefault().Validate(); err != nil {
-		log.Fatalf("validate Conn config:%s, error:%s", cfg.String(), err)
+		log.Printf(" master config:%s, validate error:%s", cfg.String(), err)
+		log.Fatalf(" master config:%s, validate error:%s", cfg.String(), err)
 	}
 	db, err := sql.Open("mysql", cfg.encodeDSN())
 	if err != nil {
-		log.Fatalf("open mysql dsn:%s, error:%s", cfg.encodeDSN(), err)
+		log.Printf("dsn:%s, open mysql error:%s", cfg.encodeDSN(), err)
+		log.Fatalf("dsn:%s, open mysql error:%s", cfg.encodeDSN(), err)
 	}
 	// 最大连接周期，超过时间的连接就close
 	db.SetConnMaxLifetime(time.Duration(cfg.ConnMaxLifetime) * time.Second)

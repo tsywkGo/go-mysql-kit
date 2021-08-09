@@ -11,8 +11,10 @@ import (
 
 type Config struct {
 	SyncerConfig struct {
-		SyncerID          int64                           `toml:"syncer_id"`
-		ReplicationConfig *replication.BinlogSyncerConfig `toml:"replication_config"`
+		SyncerID            string                          `toml:"syncer_id"`
+		ReplicationConfig   *replication.BinlogSyncerConfig `toml:"replication_config"`
+		FlushDir            string                          `toml:"flush_dir"`
+		FlushDurationSecond int64                           `toml:"flush_duration_second"`
 	} `toml:"syncer_config"`
 
 	MetaConfig struct {

@@ -19,6 +19,7 @@ func WithMaster(cfg *master.Config) Option {
 	return func(meta *Meta) {
 		m, err := master.New(cfg)
 		if err != nil {
+			log.Printf("master config:%s, new master connection error:%s", cfg.String(), err)
 			log.Fatalf("master config:%s, new master connection error:%s", cfg.String(), err)
 		}
 		meta.master = m
@@ -28,6 +29,7 @@ func WithMaster(cfg *master.Config) Option {
 func WithFlavor(flavor string) Option {
 	return func(meta *Meta) {
 		if _, ok := _supportFlavorSet[flavor]; !ok {
+			log.Printf("flavor:%s, check error:not support flavor type", flavor)
 			log.Fatalf("flavor:%s, check error:not support flavor type", flavor)
 		}
 		meta.flavor = flavor

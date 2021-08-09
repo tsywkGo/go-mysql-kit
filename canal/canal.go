@@ -2,6 +2,7 @@ package canal
 
 import (
 	"context"
+	"time"
 
 	"github.com/go-mysql-org/go-mysql/replication"
 	"github.com/pingcap/errors"
@@ -13,6 +14,7 @@ import (
 	"github.com/tsywkGo/go-mysql-kit/canal/meta/defaultmeta"
 	"github.com/tsywkGo/go-mysql-kit/canal/syncer"
 	"github.com/tsywkGo/go-mysql-kit/canal/syncer/defaultsyncer"
+	"github.com/tsywkGo/go-mysql-kit/canal/syncer/flusher/localflusher"
 )
 
 // Canal can sync your MySQL data into everywhere, like Kafka, ElasticSearch, Redis, etc...
@@ -49,10 +51,15 @@ func New(cfg *Config) (*Canal, error) {
 		defaultmeta.WithFlavor(cfg.MetaConfig.Flavor),
 	)
 
-	// todo: flushClient
+	flusher, err := localflusher.New(localflusher.WithDir(cfg.SyncerConfig.FlushDir))
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	c.syncer, err = defaultsyncer.New(
 		defaultsyncer.WithSyncerID(cfg.SyncerConfig.SyncerID),
 		defaultsyncer.WithBinlogSyncer(cfg.SyncerConfig.ReplicationConfig),
+		defaultsyncer.WithFlusher(flusher),
+		defaultsyncer.WithFlushDuration(time.Duration(cfg.SyncerConfig.FlushDurationSecond)*time.Second),
 	)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -87,7 +94,7 @@ func (c *Canal) Close() {
 }
 
 func (c *Canal) Run() error {
-	s, err := c.syncer.Start()
+	streamer, err := c.syncer.Start()
 	if err != nil {
 		log.Errorf("canal syncer start error:%s", err)
 		return err
@@ -96,7 +103,7 @@ func (c *Canal) Run() error {
 	log.Infof("canal starting...")
 
 	for {
-		logEvent, err := s.GetEvent(c.ctx)
+		logEvent, err := streamer.GetEvent(c.ctx)
 		if err != nil {
 			return err
 		}

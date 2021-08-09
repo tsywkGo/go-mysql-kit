@@ -6,7 +6,7 @@ import (
 )
 
 type ISyncer interface {
-	ID() int64
+	ID() string
 	ServerID() uint32
 	GTIDSet() mysql.GTIDSet
 	Position() mysql.Position
