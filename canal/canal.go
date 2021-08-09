@@ -2,7 +2,6 @@ package canal
 
 import (
 	"context"
-	"time"
 
 	"github.com/go-mysql-org/go-mysql/replication"
 	"github.com/pingcap/errors"
@@ -46,20 +45,22 @@ func New(cfg *Config) (*Canal, error) {
 
 	var err error
 
+	metaConfig := cfg.convertMetaConfig()
 	c.meta, err = defaultmeta.New(
-		defaultmeta.WithMaster(cfg.MetaConfig.MasterConfig),
-		defaultmeta.WithFlavor(cfg.MetaConfig.Flavor),
+		defaultmeta.WithMaster(metaConfig.MasterConfig),
+		defaultmeta.WithFlavor(metaConfig.Flavor),
 	)
 
-	flusher, err := localflusher.New(localflusher.WithDir(cfg.SyncerConfig.FlushDir))
+	syncerConfig := cfg.convertSyncerConfig()
+	flusher, err := localflusher.New(localflusher.WithDir(syncerConfig.FlushDir))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	c.syncer, err = defaultsyncer.New(
-		defaultsyncer.WithSyncerID(cfg.SyncerConfig.SyncerID),
-		defaultsyncer.WithBinlogSyncer(cfg.SyncerConfig.ReplicationConfig),
+		defaultsyncer.WithSyncerID(syncerConfig.ID),
+		defaultsyncer.WithBinlogSyncer(syncerConfig.ReplicationConfig),
 		defaultsyncer.WithFlusher(flusher),
-		defaultsyncer.WithFlushDuration(time.Duration(cfg.SyncerConfig.FlushDurationSecond)*time.Second),
+		defaultsyncer.WithFlushDuration(syncerConfig.FlushDuration),
 	)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -67,9 +68,10 @@ func New(cfg *Config) (*Canal, error) {
 
 	c.parser = parser.New()
 
+	matcherConfig := cfg.convertMatcherConfig()
 	c.matcher, err = defaultmatcher.New(
-		defaultmatcher.WithIncludeRegex(cfg.MatcherConfig.IncludeRegex),
-		defaultmatcher.WithExcludeRegex(cfg.MatcherConfig.ExcludeRegex),
+		defaultmatcher.WithIncludeRegex(matcherConfig.IncludeExpr),
+		defaultmatcher.WithExcludeRegex(matcherConfig.ExcludeExpr),
 	)
 	if err != nil {
 		return nil, errors.Trace(err)

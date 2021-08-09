@@ -77,6 +77,9 @@ func WithFlusher(flusher flusher.IFlusher) Option {
 
 func WithFlushDuration(duration time.Duration) Option {
 	return func(syncer *Syncer) {
+		if duration <= 0 {
+			duration = _defaultFlushDuration
+		}
 		syncer.flushDuration = duration
 	}
 }

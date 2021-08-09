@@ -2,8 +2,11 @@ package localflusher
 
 import (
 	"io/ioutil"
+	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/siddontang/go-log/log"
 )
 
 type Flusher struct {
@@ -32,5 +35,7 @@ func (f *Flusher) Close() error {
 }
 
 func (f *Flusher) filepath(key string) string {
+	dir, _ := os.Getwd()
+	log.Infof("flusher current dir:%s", dir)
 	return filepath.Join(f.dir, "binlog-syncer", "snapshot", key)
 }

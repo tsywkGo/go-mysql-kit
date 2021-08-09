@@ -142,9 +142,12 @@ func (s *Syncer) readSnapshot() (*snapshot, error) {
 	if err != nil {
 		return nil, err
 	}
+	if len(bytes) == 0 {
+		return &snapshot{}, nil
+	}
 	data := new(snapshot)
 	if err := json.Unmarshal(bytes, &data); err != nil {
-		log.Errorf("readSnapshot id:%d, error:%s", s.id, err)
+		log.Errorf("readSnapshot id:%s, error:%s", s.id, err)
 		return nil, err
 	}
 	return data, nil
