@@ -80,7 +80,7 @@ func (c *Canal) GetLatency() uint32 {
 }
 
 func (c *Canal) Close() {
-	log.Infof("closing canal...")
+	log.Infof("canal closing...")
 	c.cancel()
 	_ = c.syncer.Close()
 	_ = c.meta.Close()
@@ -89,8 +89,11 @@ func (c *Canal) Close() {
 func (c *Canal) Run() error {
 	s, err := c.syncer.Start()
 	if err != nil {
+		log.Errorf("canal syncer start error:%s", err)
 		return err
 	}
+
+	log.Infof("canal starting...")
 
 	for {
 		logEvent, err := s.GetEvent(c.ctx)
@@ -109,30 +112,36 @@ func (c *Canal) Run() error {
 		if logEvent.Header.LogPos == 0 {
 			switch event := logEvent.Event.(type) {
 			case *replication.RotateEvent:
-				log.Infof("received fake rotate event, next log name is %s", event.NextLogName)
+				log.Infof("canal received fake rotate event, nextLogName:%s", event.NextLogName)
 			}
 			continue
 		}
-
-		// We only save position with RotateEvent and XIDEvent.
-		// For RowsEvent, we can't save the position until meeting XIDEvent
-		// which tells the whole transaction is over.
-		// If we meet any DDL query, we must save too.
-		switch logEvent.Event.(type) {
-		case *replication.RotateEvent:
-			_ = c.parseRotateEvent(logEvent)
-		case *replication.RowsEvent:
-			_ = c.parseRowsEvent(logEvent)
-		case *replication.XIDEvent:
-			_ = c.parseXIDEvent(logEvent)
-		case *replication.MariadbGTIDEvent:
-			_ = c.parseMariadbGTIDEvent(logEvent)
-		case *replication.GTIDEvent:
-			_ = c.parseGTIDEvent(logEvent)
-		case *replication.QueryEvent:
-			_ = c.parseQueryEvent(logEvent)
-		default:
-			continue
+		if err := c.parseEvent(logEvent); err != nil {
+			log.Errorf("canal parse binlog event error:%s", err)
+			return err
 		}
 	}
+}
+
+func (c *Canal) parseEvent(logEvent *replication.BinlogEvent) error {
+	var err error
+	// We only save position with RotateEvent and XIDEvent.
+	// For RowsEvent, we can't save the position until meeting XIDEvent
+	// which tells the whole transaction is over.
+	// If we meet any DDL query, we must save too.
+	switch logEvent.Event.(type) {
+	case *replication.RotateEvent:
+		err = c.parseRotateEvent(logEvent)
+	case *replication.RowsEvent:
+		err = c.parseRowsEvent(logEvent)
+	case *replication.XIDEvent:
+		err = c.parseXIDEvent(logEvent)
+	case *replication.MariadbGTIDEvent:
+		err = c.parseMariadbGTIDEvent(logEvent)
+	case *replication.GTIDEvent:
+		err = c.parseGTIDEvent(logEvent)
+	case *replication.QueryEvent:
+		err = c.parseQueryEvent(logEvent)
+	}
+	return err
 }

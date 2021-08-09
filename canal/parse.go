@@ -3,14 +3,12 @@ package canal
 import (
 	"fmt"
 
-	"github.com/tsywkGo/go-mysql-kit/canal/matcher/common"
-
 	"github.com/go-mysql-org/go-mysql/mysql"
 	"github.com/go-mysql-org/go-mysql/replication"
-	"github.com/go-mysql-org/go-mysql/schema"
 	"github.com/pingcap/errors"
 	uuid "github.com/satori/go.uuid"
 	"github.com/siddontang/go-log/log"
+	matchercommon "github.com/tsywkGo/go-mysql-kit/canal/matcher/common"
 )
 
 var ErrExcludedTable = errors.New("excluded table meta")
@@ -37,9 +35,7 @@ func (c *Canal) parseRowsEvent(logEvent *replication.BinlogEvent) error {
 	err := c.handleRowsEvent(logEvent)
 	if err != nil {
 		errType := errors.Cause(err)
-		if errType != ErrExcludedTable &&
-			errType != schema.ErrTableNotExist &&
-			errType != schema.ErrMissingTableMeta {
+		if errType != ErrExcludedTable {
 			return err
 		}
 	}
@@ -85,7 +81,7 @@ func (c *Canal) parseQueryEvent(logEvent *replication.BinlogEvent) error {
 	if err != nil {
 		return err
 	}
-	log.Infof("parseQueryEvent query %s", string(event.Query))
+	log.Infof("parseQueryEvent query:%s", string(event.Query))
 	for _, stmt := range stmts {
 		nodes := parseStmt(stmt)
 		for _, node := range nodes {
@@ -101,7 +97,7 @@ func (c *Canal) parseQueryEvent(logEvent *replication.BinlogEvent) error {
 }
 
 func (c *Canal) updateTableMeta(n *node) error {
-	// 更新tableMeta cache
+	// 更新table meta cache
 	if n.ttype == CreateDDL {
 		ts, err := c.meta.Get(n.db, n.table)
 		if err != nil {
@@ -111,7 +107,7 @@ func (c *Canal) updateTableMeta(n *node) error {
 			return nil
 		}
 	}
-	log.Infof("table structure changed, update table meta cache: %s.%s\n", n.db, n.table)
+	log.Infof("updateTableMeta schemaName:%s.%s", n.db, n.table)
 	if err := c.meta.Delete(n.db, n.table); err != nil {
 		return err
 	}
@@ -124,7 +120,7 @@ func (c *Canal) handleRowsEvent(logEvent *replication.BinlogEvent) error {
 	dbName := string(event.Table.Schema)
 	tbName := string(event.Table.Table)
 
-	if c.matcher.Match(dbName, tbName) == common.StateTypes.Filter {
+	if c.matcher.Match(dbName, tbName) == matchercommon.StateTypes.Filter {
 		return ErrExcludedTable
 	}
 
@@ -145,6 +141,6 @@ func (c *Canal) handleRowsEvent(logEvent *replication.BinlogEvent) error {
 		return errors.Errorf("%s not supported now", logEvent.Header.EventType)
 	}
 
-	log.Infof("action %s, table %s, rows %v", action, ts.String(), event.Rows)
+	log.Infof("handleRowsEvent action:%s, table:%s, rows:%v", action, ts.String(), event.Rows)
 	return nil
 }
